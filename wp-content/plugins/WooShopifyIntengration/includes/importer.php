@@ -24,7 +24,7 @@ class Shopify_WooCommerce_Importer {
     private function get_credentials() {
         $this->shop_url = carbon_get_theme_option('shopify_shop_url');
         $this->api_key = carbon_get_theme_option('shopify_api_key');
-        $this->api_token = carbon_get_theme_option('shopify_api_token');
+        $this->api_token = carbon_get_theme_option('shopify_access_token');
     }
     
     /**
@@ -458,8 +458,3 @@ class Shopify_WooCommerce_Importer {
 // Initialize the importer
 new Shopify_WooCommerce_Importer();
 
-
-// Add this debug line
-add_action('admin_notices', function() {
-    echo '<div class="notice notice-info"><p>Importer class loaded!</p></div>';
-});
