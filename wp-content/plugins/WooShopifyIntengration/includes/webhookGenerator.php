@@ -28,7 +28,7 @@ class Webhook_Generator {
         // 1. The namespace (e.g., 'my-plugin/v1')
         // 2. The route path (e.g., '/my-endpoint/')
         // 3. An array of arguments defining methods, permissions, and the callback function.
-        register_rest_route(
+        $isRegister = register_rest_route(
             $this->namespace,
             '/' . $this->hookEndpoint, // Prefix the endpoint path with a slash
             array(
@@ -37,21 +37,33 @@ class Webhook_Generator {
                 'permission_callback' => '__return_true', // Allows public access (necessary for webhooks)
             )
         );
+
+      
     }
 
-    /**
-     * The callback function that runs when the endpoint is hit.
-     * 
-     * @param WP_REST_Request $request The request object.
-     */
-    public function handle_webhook_data( $request ) {
-        // You can access data sent to the endpoint via the $request object
-        $parameters = $request->get_params();
+   
+    public function get_webhook_url() {
 
-        // Perform your logic here (e.g., save data to the database, process the Shopify data)
+        return rest_url($this->namespace. "/" . $this->hookEndpoint);
+        
+    }
 
-        // Return a response
+    public function handle_webhook_data(WP_REST_Request $resquest){
+
         return new WP_REST_Response( 'Webhook received successfully!', 200 );
+
+    }
+
+
+      public function render_url_display_html() {
+        $url = $this->get_webhook_url();
+        ?>
+        <hr>
+        <h3>Shopify Webhook URL</h3>
+        <p>Use this URL for your Shopify connection:</p>
+        <input type="text" value="<?php echo esc_url( $url ); ?>" class="large-text code" readonly="readonly" onclick="this.select();" />
+        <p class="description">Copy and paste this URL into the Shopify Webhooks configuration.</p>
+        <?php
     }
 }
 
@@ -66,3 +78,12 @@ function init_webhook() {
 
 // This is the correct action hook to register custom REST API endpoints
 add_action("rest_api_init", 'init_webhook');
+
+
+function set_url_webhook(){
+
+    $render_hook = new Webhook_Generator;
+
+    $render_hook->render_url_display_html();
+}
+add_action("register_product_fields", "set_url_webhook");
