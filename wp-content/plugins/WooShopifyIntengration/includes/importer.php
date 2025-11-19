@@ -213,47 +213,61 @@ class Shopify_WooCommerce_Importer {
      * Make API request to Shopify
      */
     private function make_shopify_request($endpoint, $params = array()) {
-        $this->get_credentials();
-        
-        if (empty($this->shop_url) || empty($this->api_token)) {
-            return new WP_Error('missing_credentials', 'Shopify credentials are not configured.');
-        }
-        
-        // Clean shop URL
-        $shop_url = str_replace(array('https://', 'http://'), '', $this->shop_url);
-        $shop_url = rtrim($shop_url, '/');
-        
-        // Build URL
-        $url = sprintf(
-            'https://%s/admin/api/%s/%s',
-            $shop_url,
-            $this->api_version,
-            ltrim($endpoint, '/')
-        );
-        
-        if (!empty($params)) {
-            $url .= '?' . http_build_query($params);
-        }
-        
-        // Make request
-        $response = wp_remote_get($url, array(
-            'headers' => array(
-                'X-Shopify-Access-Token' => $this->api_token,
-                'Content-Type' => 'application/json'
-            ),
-            'timeout' => 30
-        ));
-        
-        if (is_wp_error($response)) {
-            return $response;
-        }
-        
-        $body = wp_remote_retrieve_body($response);
-        $data = json_decode($body, true);
-        
-        return $data;
+    $this->get_credentials();
+    
+    if (empty($this->shop_url) || empty($this->api_token)) {
+        return new WP_Error('missing_credentials', 'Shopify credentials are not configured.');
     }
     
+    // Clean shop URL
+    $shop_url = str_replace(array('https://', 'http://'), '', $this->shop_url);
+    $shop_url = rtrim($shop_url, '/');
+    
+    // Build URL for local API
+    $url = sprintf(
+        'http://%s/%s',
+        $shop_url,
+        ltrim($endpoint, '/')
+    );
+    
+    if (!empty($params)) {
+        $url .= '?' . http_build_query($params);
+    }
+    
+    error_log('=== SHOPIFY REQUEST ===');
+    error_log('URL: ' . $url);
+    error_log('API Key: ' . $this->api_key);
+    error_log('Token: ' . $this->api_token);
+    error_log('Origin: ' . home_url());
+    
+    // Make request with correct headers for your Remix app
+    $response = wp_remote_get($url, array(
+        'headers' => array(
+            'x-api-key' => $this->api_key,
+            'x-token' => $this->api_token,
+            'origin' => home_url(),
+            'Content-Type' => 'application/json'
+        ),
+        'timeout' => 30,
+        'sslverify' => false
+    ));
+    
+    if (is_wp_error($response)) {
+        error_log('ERROR: ' . $response->get_error_message());
+        return $response;
+    }
+    
+    $status_code = wp_remote_retrieve_response_code($response);
+    $body = wp_remote_retrieve_body($response);
+    
+    error_log('Status Code: ' . $status_code);
+    error_log('Response Body: ' . substr($body, 0, 500)); // First 500 chars
+    error_log('=== END REQUEST ===');
+    
+    $data = json_decode($body, true);
+    
+    return $data;
+}
     /**
      * AJAX handler for importing products
      */
@@ -270,7 +284,12 @@ class Shopify_WooCommerce_Importer {
         $limit = 50;
         
         // Fetch products from Shopify
-        $result = $this->make_shopify_request('products.json', array(
+       /* $result = $this->make_shopify_request('products.json', array(
+            'limit' => $limit,
+            'page' => $page
+        ));*/
+
+         $result = $this->make_shopify_request('', array(
             'limit' => $limit,
             'page' => $page
         ));

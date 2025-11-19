@@ -29,7 +29,7 @@ if(!class_exists('SimShopifyIntegration'))
 	                
 	 if ($hook === 'shopify-integration_page_shopify-importer') {
 
-		wp_enqueue_script('shopify-importer', plugin_dir_url(dirname(__FILE__)). 'includes/importer.js', array('jquery'), '1.0', true);
+		wp_enqueue_script('shopify-importer', plugin_dir_url(__FILE__). 'includes/importer.js', array('jquery'), '1.0', true);
 	    wp_localize_script('shopify-importer', 'shopifyImporter', array(
         'ajax_url' => admin_url('admin-ajax.php'),
         'nonce' => wp_create_nonce('shopify_import_nonce')
