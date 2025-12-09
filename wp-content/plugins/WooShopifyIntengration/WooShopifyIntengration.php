@@ -15,6 +15,11 @@ if(!defined('ABSPATH'))
     die();
 }
 
+
+ define('PLUGIN_PATH', plugin_dir_path(__FILE__));
+
+ require_once(PLUGIN_PATH . '/vendor/autoload.php');
+			
 if(!class_exists('SimShopifyIntegration'))
 {
    
@@ -46,10 +51,7 @@ if(!class_exists('SimShopifyIntegration'))
 
 		public function __construct()
 		{
-			define('PLUGIN_PATH', plugin_dir_path(__FILE__));
-
-			require_once(PLUGIN_PATH . '/vendor/autoload.php');
-			
+		
 		}
 
 		public function initializer()

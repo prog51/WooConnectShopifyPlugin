@@ -30,12 +30,20 @@ class Webhook_Generator {
         $this->hookEndpoint = "shopify-connector"; // Use the corrected property name
         $this->webhookImporter = $importer;
 
-        if(carbon_get_theme_option("shopify_webhook_secret")){
-                $this->webhook_secret = carbon_get_theme_option("shopify_webhook_secret");
-        }
-		
+       
+		 add_action('init',array($this,'load_webhook_secret' ) );
     }
 
+
+    public function load_webhook_secret(){
+       
+           $secret = carbon_get_theme_option("shopify_webhook_secret");
+
+           if($secret){
+                $this->webhook_secret = $secret;
+          }
+
+    }
 
     public function webhook_importer($productData) {
 
@@ -689,5 +697,5 @@ function initialize_shopify_integration() {
     $shopify_webhook = new Webhook_Generator($shopify_importer);
     $shopify_importer->set_webhook_url($shopify_webhook->get_webhook_url());
 }
-add_action('plugins_loaded', 'initialize_shopify_integration');
+add_action('init', 'initialize_shopify_integration');
 
