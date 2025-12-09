@@ -9,21 +9,40 @@
 * Webhook generator
 */
 
+
+
+
+
+// Initialize the importer
+
+
 class Webhook_Generator {
 
     private $namespace;
-    private $hookEndpoint; // Renamed for consistency
+    private $hookEndpoint; 
+    private $webhookImporter;
+	private $webhook_secret;
+	
 
-    public function __construct() {
-        $this->namespace = "WooShopifyIntengration/v1";
-        $this->hookEndpoint = "shopifyConnector"; // Use the corrected property name
+
+    public function __construct(Shopify_WooCommerce_Importer $importer) {
+        $this->namespace = "woo-shopify-integration/v2";
+        $this->hookEndpoint = "shopify-connector"; // Use the corrected property name
+        $this->webhookImporter = $importer;
+
+        if(carbon_get_theme_option("shopify_webhook_secret")){
+                $this->webhook_secret = carbon_get_theme_option("shopify_webhook_secret");
+        }
+		
     }
 
-    // Note: The GenerateHook method isn't strictly necessary if you only need the route definition
-    // private function GenerateHook(){
-    //     return esc_url(get_rest_url());
-    // }
 
+    public function webhook_importer($productData) {
+
+        $this->webhookImporter->import_product($productData);
+    }
+
+ 
     /**
      * Registers the custom REST API route.
      */
@@ -34,7 +53,7 @@ class Webhook_Generator {
         // 3. An array of arguments defining methods, permissions, and the callback function.
         $isRegister = register_rest_route(
             $this->namespace,
-            '/' . $this->hookEndpoint, // Prefix the endpoint path with a slash
+            '/' . $this->hookEndpoint, 
             array(
                 'methods'             => 'POST', // Webhooks usually use POST requests
                 'callback'            => array( $this, 'handle_webhook_data' ), // Callback function in this class
@@ -52,11 +71,73 @@ class Webhook_Generator {
         
     }
 
-    public function handle_webhook_data(WP_REST_Request $resquest){
+  public function handle_webhook_data(WP_REST_Request $request) {
 
-        return new WP_REST_Response( 'Webhook received successfully!', 200 );
+    $web_content = $request->get_body();
 
+    // 1. Check if body is empty
+    if (empty($web_content)) {
+        return new WP_Error(
+            'missing_product',
+            'Product data is missing',
+            array('status' => 400)
+        );
     }
+
+    
+    $hash = "sha256";
+
+    // 2. Get Shopify HMAC header
+    $receivedHash = $request->get_header('X-Shopify-Webhook-Signature');
+
+    if (empty($receivedHash)) {
+        return new WP_Error(
+            'missing_signature',
+            'Signature is missing',
+            array('status' => 400)
+        );
+    }
+
+    // 3. Calculate expected hash
+    $calculateHash = hash_hmac($hash, $web_content, $this->webhook_secret);
+	
+	/*
+	* $calculateHash = base64_encode(hash_hmac($hash, $web_content, $this->webhook_secret, true));
+	* Check to see if shopify webhook sending Signature as hex
+	*/
+	
+
+    // 4. Verify signature
+    if (!hash_equals($calculateHash, $receivedHash)) {
+        return new WP_Error(
+            'webhook_failed',
+            'Signature did not match',
+            array('status' => 401)
+        );
+    }
+
+    // 5. Decode payload
+    $payload = json_decode($web_content, true);
+
+    if (empty($payload['product'])) {
+        return new WP_Error(
+            'missing_product_data',
+            'Product data is missing in payload',
+            array('status' => 400)
+        );
+    }
+
+    // 6. Process product
+    $product_data = $payload['product'];
+
+    $this->webhook_importer($product_data);
+
+    return new WP_REST_Response([
+        'success' => true,
+        'message' => 'Webhook received and verified successfully!'
+    ], 200);
+}
+
 
 
       public function render_url_display_html() {
@@ -73,24 +154,23 @@ class Webhook_Generator {
 
 
 /*
- * Initialization function hooked into 'rest_api_init'.
+ * Initialization function hooked into 'rest_api_init'.*/
  
 function init_webhook() {
-    $init = new Webhook_Generator;
-    $init->register_webhook();
+
+   global $shopify_webhook;
+   
+   if($shopify_webhook){
+	   
+	   return $shopify_webhook->register_webhook();
+	   
+      }
+	  return '';
+    
 } 
-
-// This is the correct action hook to register custom REST API endpoints
-add_action("rest_api_init", 'init_webhook');*/
+add_action("rest_api_init", 'init_webhook');
 
 
-function set_url_webhook(){
-
-    $render_hook = new Webhook_Generator;
-
-    $render_hook->render_url_display_html();
-}
-add_action("register_product_fields", "set_url_webhook");
 
 class Shopify_WooCommerce_Importer {
     
@@ -99,14 +179,29 @@ class Shopify_WooCommerce_Importer {
     private $api_token;
     private $api_version = '2024-01';
     private $webhook_url;
-    public function __construct(Webhook_Generator $webhook) {
- 
-          $this->webhook_url = $webhook->render_url_display_html();
+	private $webhook_data;
+    private $webhook_secret;
 
+    public function __construct() {
+ 
+          //$this->webhook_url = $webhook->render_url_display_html();
+		  //$this->$webhook_data = $webhook->handle_webhook_data();
+		  
+		  
+		
         add_action('admin_menu', array($this, 'add_importer_page'), 99);
         add_action('wp_ajax_shopify_import_products', array($this, 'ajax_import_products'));
         add_action('admin_enqueue_scripts', array($this, 'enqueue_scripts'));
     }
+	
+	
+	
+	public function set_webhook_url($url) {
+		
+    $this->webhook_url = $url;
+	
+	
+   }
     
     /**
      * Get Shopify credentials from Carbon Fields
@@ -586,11 +681,13 @@ class Shopify_WooCommerce_Importer {
 
 
 
-
-//generate hook
-
-$Webhook_obj = new Webhook_Generator;
-
-// Initialize the importer
-new Shopify_WooCommerce_Importer($Webhook_obj);
+// At bottom, replace direct instantiation with:
+function initialize_shopify_integration() {
+    global $shopify_importer, $shopify_webhook;
+    
+    $shopify_importer = new Shopify_WooCommerce_Importer();
+    $shopify_webhook = new Webhook_Generator($shopify_importer);
+    $shopify_importer->set_webhook_url($shopify_webhook->get_webhook_url());
+}
+add_action('plugins_loaded', 'initialize_shopify_integration');
 

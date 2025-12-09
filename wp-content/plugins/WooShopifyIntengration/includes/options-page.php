@@ -24,8 +24,8 @@ function create_option_page()
         Field::make('text', 'shopify_api_key', 'Shopify API Key')
                 ->set_help_text('Enter your Shopify API key'),
 
-            Field::make('text', 'shopify_api_secret', 'Shopify API Secret')
-                ->set_help_text('Enter your Shopify API secret'),
+            Field::make('text', 'shopify_webhook_secret', 'Webhook Secret')
+                ->set_help_text('Enter the secret for your webhook: OPTIONAL'),
 
             Field::make('text', 'shopify_access_token', 'Shopify Access Token')
                 ->set_help_text('Enter your Shopify access token'),
